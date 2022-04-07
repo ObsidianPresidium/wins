@@ -8,11 +8,29 @@ namespace wins
     {
         static void Main(string[] args)
         {
-            string wingetExecutablePath = Environment.GetEnvironmentVariable("localappdata") + @"\Microsoft\WindowsApps\winget.exe";
+            string wingetExecutableContainerPath = Environment.GetEnvironmentVariable("localappdata") + @"\Microsoft\WindowsApps";
+            string initDirectory = Directory.GetCurrentDirectory();
+            Directory.SetCurrentDirectory(wingetExecutableContainerPath);
 
-            static void ensure(string wingetExecutablePath)
+            static int mkInstall(string package, bool noPrompt = false, bool dryRun = false)
             {
-                if (!File.Exists(wingetExecutablePath))
+                string processCommand = (noPrompt) ? "winget install --accept-package-agreements --accept-source-agreements --force " + package : "winget install " + package;
+                if (!dryRun)
+                { 
+                    Process myProcess = System.Diagnostics.Process.Start(processCommand);
+                    myProcess.WaitForExit();
+                    return myProcess.ExitCode;
+                } else
+                {
+                    Console.WriteLine(processCommand);
+                    return 0;
+                }
+                
+            }
+            
+            static void ensure(string wingetExecutableContainerPath)
+            {
+                if (!File.Exists(wingetExecutableContainerPath))
                 {
                     Process.Start(new ProcessStartInfo("ms-appinstaller:?source=https://aka.ms/getwinget") { UseShellExecute = true });
                     Process[] appInstallerProcesses = Process.GetProcessesByName("AppInstaller");
@@ -27,29 +45,31 @@ namespace wins
 
             static void install(string[] args)
             {
-                string commandConstruct = "winget install";
+                bool noPrompt = false;
+                
                 for (int i = 1; i < args.Length; i++)
                 {
-                    if (args[i] == "-y")
+                    string currentPackage = args[i];
+
+                    if (currentPackage == "-y")
                     {
-                        commandConstruct += " --accept-package-agreements --accept-source-agreements --force";
+                        noPrompt = true;
                     }
                     else
                     {
                         Console.Write("Installing ");
-                        Console.WriteLine(args[i]);
-                        Process myProcess = System.Diagnostics.Process.Start(commandConstruct += args[i]);
-                        myProcess.WaitForExit();
+                        Console.WriteLine(currentPackage);
+                        mkInstall(currentPackage, noPrompt);
                     }
                 }
             }
 
-            Console.WriteLine(wingetExecutablePath);
+            Console.WriteLine(wingetExecutableContainerPath);
             switch (args[0])
             {
                 case "ensure":
                     Console.WriteLine("Ensuring that Winget is installed... please accept any GUI windows.");
-                    ensure(wingetExecutablePath);
+                    ensure(wingetExecutableContainerPath);
                     break;
                 case "install":
                     install(args);
